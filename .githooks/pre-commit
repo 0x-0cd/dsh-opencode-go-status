@@ -1,0 +1,50 @@
+#!/bin/sh
+# 提交前密钥门禁：扫描暂存区，命中疑似凭据即阻断提交。
+#
+# 启用（仓库级，一次即可）：
+#   git config core.hooksPath .githooks
+#
+# 两层检查，**都必须跑**：
+#   1. gitleaks（带 .gitleaks.toml，其中补了 OpenCode `oc_sk_` 前缀规则）；
+#   2. grep 形态兜底 —— 因为 gitleaks 默认规则认不出 `oc_sk_…`，而且工具可能
+#      不存在或调用失败；任何一层命中都阻断。
+# 命中内容一律不打印明文，只报位置与数量。
+
+set -u
+
+fail() {
+  echo "✖ $1" >&2
+  echo "  确认是误报后用 git commit --no-verify 跳过。" >&2
+  exit 1
+}
+
+# ── 第 1 层：gitleaks ────────────────────────────────────────────────────
+if command -v gitleaks >/dev/null 2>&1; then
+  OUT=$(mktemp)
+  if [ -f .gitleaks.toml ]; then
+    gitleaks git --staged --pre-commit --redact -v --config .gitleaks.toml >"$OUT" 2>&1
+  else
+    gitleaks git --staged --pre-commit --redact -v >"$OUT" 2>&1
+  fi
+  gs=$?
+  if [ "$gs" -eq 1 ]; then
+    cat "$OUT" >&2
+    rm -f "$OUT"
+    fail "暂存区命中疑似密钥（gitleaks）。"
+  fi
+  if [ "$gs" -ne 0 ]; then
+    echo "gitleaks 调用异常（exit $gs），已跳过第 1 层，仍执行第 2 层。" >&2
+  fi
+  rm -f "$OUT"
+else
+  echo "gitleaks 不可用，仅执行第 2 层 grep 形态检查。" >&2
+fi
+
+# ── 第 2 层：形态兜底（无条件执行）────────────────────────────────────────
+PATTERN='^\+.*(oc_sk_[A-Za-z0-9_]{16,}|sk-[A-Za-z0-9]{20,}|ghp_[A-Za-z0-9]{36}|github_pat_[A-Za-z0-9_]{22,}|AKIA[0-9A-Z]{16}|-----BEGIN [A-Z ]*PRIVATE KEY-----|Bearer[ \t]+[A-Za-z0-9_-]{32,})'
+HITS=$(git diff --cached -U0 | grep -cE "$PATTERN" || true)
+if [ "${HITS:-0}" -gt 0 ]; then
+  fail "暂存区 $HITS 行命中疑似密钥形态（不打印内容以免泄露）。"
+fi
+
+exit 0

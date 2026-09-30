@@ -1,0 +1,30 @@
+name: check
+
+# 最小门禁：本插件零依赖、无构建步骤，所以 CI 只做语法与清单校验。
+# actions/checkout 按 commit SHA 固定（v4.2.2），避免标签被移动带来的供应链风险。
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Syntax check (host + client halves)
+        run: |
+          node --check index.js
+          node --check client.js
+
+      - name: Host unit tests (offline, stubbed fetch)
+        run: node --test test/
+
+      - name: Validate manifests
+        run: |
+          node -e "const p=require('./package.json'); if(!p.dsh||!p.dsh.bundle||!p.dsh.client) throw new Error('dsh manifest incomplete'); if(!p.repository) throw new Error('repository field missing');"
+          node -e "const s=require('fs').readFileSync('cordis.patch.yml','utf8'); if(!s.includes('dsh-opencode-go-status')) throw new Error('cordis patch row missing');"
+          node -e "const s=require('fs').readFileSync('client.js','utf8'); if(!s.includes('__ModuleLoader__.load')) throw new Error('client bundle is not in module-loader format');"

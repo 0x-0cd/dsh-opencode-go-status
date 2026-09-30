@@ -78,6 +78,18 @@ dsh plugin --profile web add file:/Users/qianneng/Code/dsh_optimize/dsh-opencode
 - 宿主需要能直连 `opencode.ai`（实测直连与 HTTP 代理均可用）。
 - 到期时间是**本期结束时刻**；`cancelAtPeriodEnd=false` 时它会自动续期，所以「到期」等于「续费日」。
 
+## 网络行为与隐私
+
+- **出站请求只有一个**：每次刷新向 `https://opencode.ai/console/api/go/status` 发一次 GET，
+  在 `Authorization: Bearer` 头里带上你的 OpenCode Go API key。没有遥测、没有埋点、没有第三方端点。
+- **密钥不出宿主进程**：浏览器只访问同源回环路由 `/api/dsh-opencode-go-status/status`，
+  返回值里只有额度数字和密钥**来源标签**（如 `credentials:file`），没有密钥本身。
+- **不落盘**：配额快照只存在宿主内存缓存里（`cacheSeconds`，默认 30 秒），不写历史文件、不写日志。
+- **`statusURL` 可被改指**：改它等于把 key 发给那台主机，所以非回环地址强制 `https`
+  （明文 http 会被拒绝并报错），避免配错协议把密钥暴露在链路上。
+- 宿主路由只对回环地址开放（`127.0.0.1`/`::1` + 同源标记），且只支持 `GET`；
+  进程内缓存带最小强制刷新间隔（3 秒），本地进程无法用 `?refresh=1` 无限绕过缓存打上游。
+
 ## 许可
 
 MIT

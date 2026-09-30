@@ -67,6 +67,35 @@ function resolveConfig(config) {
   }
 }
 
+/** 回环主机判定：只有这些主机允许明文 http（本地调试用）。 */
+function isLoopbackHost(hostname) {
+  return hostname === '127.0.0.1' || hostname === 'localhost' || hostname === '::1' || hostname === '[::1]'
+}
+
+/**
+ * 校验状态接口地址：非回环主机必须使用 https。
+ *
+ * 该请求携带 API key，明文 http 会把密钥暴露给链路上的任何观察者；把
+ * statusURL 指到第三方主机则会直接把密钥送给对方。这里不做主机白名单
+ * （自建反代是合法用法），但强制 https，挡掉最常见的「配错协议」型泄露。
+ * @param raw - 配置里的 statusURL。
+ * @returns 解析后的 URL 对象。
+ */
+function assertSecureStatusUrl(raw) {
+  let url
+  try {
+    url = new URL(raw)
+  } catch {
+    throw new Error(`statusURL 不是合法 URL：${raw}`)
+  }
+  if (url.protocol !== 'https:' && !isLoopbackHost(url.hostname)) {
+    throw new Error(
+      `statusURL 必须是 https（当前 ${url.protocol}//${url.hostname}）：该请求携带 API key，明文 http 会泄露密钥；仅回环地址允许 http。`,
+    )
+  }
+  return url
+}
+
 /**
  * 解析 API key，并报告来源层级。
  * @param ctx - 宿主插件上下文。
@@ -142,7 +171,7 @@ async function fetchStatus(ctx, options) {
   if (resolved === undefined) {
     throw new Error(`未找到 API key：请配置插件 apiKey，或让凭证 ${options.apiKeyRef} 可从 DSH 凭证 / 环境变量解析`)
   }
-  const response = await fetch(options.statusURL, {
+  const response = await fetch(assertSecureStatusUrl(options.statusURL), {
     method: 'GET',
     headers: { authorization: `Bearer ${resolved.key}`, accept: 'application/json' },
     signal: AbortSignal.timeout(options.timeoutMs),
@@ -189,6 +218,14 @@ function writeJson(res, status, body) {
 }
 
 /**
+ * 强制刷新（`?refresh=1`）的最小间隔。
+ *
+ * 本路由只对回环开放，但仍要防止本地进程拿刷新参数无限绕过缓存、把上游
+ * 接口当压测对象（也顺带限制了重复触发上游计费无关请求的频次）。
+ */
+const MIN_FORCED_REFRESH_MS = 3000
+
+/**
  * 构建状态路由。resolveConfig 每次请求重新求值，配置改动无需重挂路由。
  * @param ctx - 宿主插件上下文。
  * @param getConfig - 返回当前配置快照。
@@ -197,6 +234,8 @@ function writeJson(res, status, body) {
 export function makeStatusRoute(ctx, getConfig) {
   /** 进程内缓存：避免面板轮询反复打上游。 */
   let cache
+  /** 上一次被接受的强制刷新时刻。 */
+  let lastForcedAt = 0
   return {
     kind: 'exact',
     path: STATUS_API,
@@ -214,7 +253,7 @@ export function makeStatusRoute(ctx, getConfig) {
         writeJson(res, 200, { success: false, error: '插件已禁用（enabled: false）' })
         return
       }
-      const refresh = (() => {
+      const wantsRefresh = (() => {
         try {
           return new URL(req.url ?? '/', 'http://127.0.0.1').searchParams.get('refresh') === '1'
         } catch {
@@ -222,6 +261,8 @@ export function makeStatusRoute(ctx, getConfig) {
         }
       })()
       const now = Date.now()
+      const refresh = wantsRefresh && now - lastForcedAt >= MIN_FORCED_REFRESH_MS
+      if (refresh) lastForcedAt = now
       if (!refresh && cache !== undefined && now - cache.at < options.cacheSeconds * 1000) {
         writeJson(res, 200, { success: true, ...cache.snapshot, cached: true })
         return
@@ -248,11 +289,9 @@ export function makeStatusRoute(ctx, getConfig) {
  * @param config - 组合条目传入的配置。
  */
 export function apply(ctx, config) {
-  let current = () => config ?? {}
+  const current = () => config ?? {}
   ctx.effect(() => {
-    const dispose = ctx.webServer.register(makeStatusRoute(ctx, () => current()))
+    const dispose = ctx.webServer.register(makeStatusRoute(ctx, current))
     return () => dispose()
   }, 'opencode-go-status: status route')
-  // 组合条目直接提供配置（本插件不提供设置页，没有 settings 服务写入路径）。
-  current = () => config ?? {}
 }

@@ -85,6 +85,23 @@ same-origin route `/api/dsh-opencode-go-status/status`.
 - The expiry shown is the **end of the current period**; with `cancelAtPeriodEnd=false` it
   auto-renews, so "expiry" equals "renewal date".
 
+## Network behaviour and privacy
+
+- **One outbound request only**: each refresh issues a single `GET` to
+  `https://opencode.ai/console/api/go/status`, carrying your OpenCode Go API key in the
+  `Authorization: Bearer` header. No telemetry, no analytics, no third-party endpoints.
+- **The key never leaves the host process**: the browser only calls the same-origin loopback
+  route `/api/dsh-opencode-go-status/status`; responses carry quota numbers and a key
+  **source label** (e.g. `credentials:file`), never the key itself.
+- **Nothing is persisted**: the quota snapshot lives in a host-side in-memory cache
+  (`cacheSeconds`, default 30 s). No history file, no logs.
+- **`statusURL` is redirectable**: pointing it elsewhere sends the key to that host, so
+  non-loopback addresses are forced to `https` (plaintext `http` is rejected with an error)
+  to stop a protocol typo from exposing the key on the wire.
+- The host route is loopback-only (`127.0.0.1`/`::1` plus same-origin markers) and `GET`-only;
+  the in-memory cache enforces a minimum forced-refresh interval (3 s) so a local process
+  cannot use `?refresh=1` to hammer the upstream without bound.
+
 ## License
 
 MIT

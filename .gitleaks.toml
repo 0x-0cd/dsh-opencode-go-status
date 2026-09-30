@@ -1,0 +1,24 @@
+# gitleaks 配置：在默认规则之上补上本仓库特有的凭据形态。
+#
+# 为什么必须有这个文件：gitleaks 8.30.1 的默认规则集**不识别** OpenCode 的
+# `oc_sk_…` 前缀（实测：对 `oc_sk_FAKEdeadbeef…` 返回 "no leaks found"、
+# 退出码 0）。而本插件处理的正是这种 key —— 只靠默认规则，提交门禁对最该拦
+# 的那类凭据是瞎的。
+title = "dsh-opencode-go-status"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "opencode-api-key"
+description = "OpenCode / OpenCode Go API key (oc_sk_ prefix)"
+regex = '''oc_sk_[A-Za-z0-9_]{16,}'''
+keywords = ["oc_sk_"]
+tags = ["key", "opencode"]
+
+[[rules]]
+id = "inline-bearer-token"
+description = "Literal Bearer token pasted into a file"
+regex = '''(?i)bearer[ \t]+[A-Za-z0-9_\-]{32,}'''
+keywords = ["bearer"]
+tags = ["key"]
