@@ -98,6 +98,8 @@ window.__ModuleLoader__.load({
       const hours = Math.floor(delta / 3600000);
       delta -= hours * 3600000;
       const minutes = Math.floor(delta / 60000);
+      // 扣掉已进位到“分”的毫秒，否则秒位拿到的是整段余数（曾出现「6 分 396 秒」）。
+      delta -= minutes * 60000;
       if (days > 0) return zh() ? `${days} 天 ${hours} 小时` : `${days}d ${hours}h`;
       if (hours > 0) return zh() ? `${hours} 小时 ${minutes} 分钟` : `${hours}h ${minutes}m`;
       const seconds = Math.floor(delta / 1000);
@@ -384,6 +386,8 @@ window.__ModuleLoader__.load({
     const module = { exports: {} };
     module.exports.apply = apply;
     module.exports.inject = inject;
+    // 测试缝：纯函数离线单测用，shell 只认 apply / inject。
+    module.exports.__test = { countdown, dateTime };
     return module.exports;
   },
 });
