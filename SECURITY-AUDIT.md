@@ -159,7 +159,7 @@ git grep -nE 'uses: [A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+@v[0-9]' -- '.github/workflow
 git grep -n 'permissions:' -- '.github/workflows/**'                                       # → contents: read
 
 # 行为回归（13 用例，桩 fetch，离线）
-node --test test/
+node --test test/*.test.mjs
 ```
 
 ## 方法限制

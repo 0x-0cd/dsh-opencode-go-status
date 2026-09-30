@@ -72,6 +72,21 @@ Key resolution: `apiKey` → DSH credentials service (`apiKeyRef`, covering
 environment. **The key never leaves the host process**; the browser only calls the
 same-origin route `/api/dsh-opencode-go-status/status`.
 
+## Development
+
+```sh
+git config core.hooksPath .githooks   # enable the pre-commit secret gate (gitleaks + grep fallback)
+node --check index.js && node --check client.js
+node --test test/*.test.mjs           # host-side offline suite (13 cases, stubbed fetch)
+```
+
+After changing the host half, reinstall with `dsh plugin --profile web add file:<this dir>` —
+a `file:` dependency is copied, not symlinked, so the profile keeps using the old copy until
+you reinstall. Then restart or reload the GUI.
+
+Audit findings and their re-runnable verification commands live in
+[SECURITY-AUDIT.md](./SECURITY-AUDIT.md).
+
 ## Known limitations
 
 - `/console/api/go/status` is an OpenCode **console-internal** endpoint, undocumented

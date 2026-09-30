@@ -67,6 +67,19 @@ dsh plugin --profile web add file:/Users/qianneng/Code/dsh_optimize/dsh-opencode
 启动环境、`.env` 各层）→ 进程环境变量。**密钥只在宿主进程内使用，不进入浏览器**；浏览器
 只访问同源路由 `/api/dsh-opencode-go-status/status`。
 
+## 开发与验证
+
+```sh
+git config core.hooksPath .githooks   # 启用提交前密钥门禁（gitleaks + grep 兜底两层）
+node --check index.js && node --check client.js
+node --test test/*.test.mjs           # 宿主端离线测试（13 用例，桩 fetch）
+```
+
+改动宿主端后，用 `dsh plugin --profile web add file:<本目录>` 重新安装（`file:` 是拷贝
+而非软链，改完不重装则 profile 用的还是旧副本），然后重启/刷新 GUI。
+
+安全审计结论与可复核命令见 [SECURITY-AUDIT.md](./SECURITY-AUDIT.md)。
+
 ## 已知限制
 
 - `/console/api/go/status` 是 OpenCode **控制台内部接口**，不在官方公开文档里（CodexBar 读的是
