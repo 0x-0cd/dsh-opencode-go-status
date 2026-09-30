@@ -1,0 +1,12 @@
+# dsh-opencode-go-status bundle patch
+#
+# 通过官方 CLI 安装时（dsh plugin --profile web add file:<本目录>），
+# 这条 patch 由 dsh.bundle.patch 声明引入：profile 启动时把插件行插进组合名单。
+# 手动安装时也可以把下面这段 insert 直接抄进 profile 的 cordis.patch.yml。
+#
+# 宿主端（exports "."）提供 /api/dsh-opencode-go-status/status 同源 JSON 路由；
+# 浏览器端（exports "./client"，由 package.json 的 dsh.client 声明）注册侧边栏
+# 「用量」入口与主区面板。注意：两者只能存在一处，重复挂载会起两个插件实例。
+- insert:
+    - id: opencode-go-status
+      name: 'dsh-opencode-go-status'

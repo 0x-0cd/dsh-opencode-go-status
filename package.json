@@ -1,0 +1,41 @@
+{
+  "name": "dsh-opencode-go-status",
+  "version": "0.1.0",
+  "private": true,
+  "description": "OpenCode Go 订阅状态面板（DSH Web）：套餐用量额度、剩余额度、订阅到期时间与续费状态。",
+  "type": "module",
+  "main": "index.js",
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "inject": [
+        "slots"
+      ],
+      "platform": "web"
+    }
+  },
+  "files": [
+    "index.js",
+    "client.js",
+    "cordis.patch.yml",
+    "README.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "opencode-go",
+    "usage",
+    "quota",
+    "subscription"
+  ],
+  "license": "MIT"
+}

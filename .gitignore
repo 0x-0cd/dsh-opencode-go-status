@@ -1,0 +1,14 @@
+# macOS
+.DS_Store
+
+# dependencies / artifacts
+node_modules/
+*.log
+*.tgz
+
+# editors
+.idea/
+.vscode/
+
+# scanners
+.gitleaks-report.json
